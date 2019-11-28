@@ -10,5 +10,6 @@ description = "Tag log statements with file name and line number"
 [dependencies]
 fomat-macros = "0.3"
 glob = "0.3"
-gstuff = {version = "0.6", features = ["term", "term_size"]}
+gstuff = {version = "^0.6.2", features = ["term", "term_size"]}
+nom = "5"
 structopt = "0.3"

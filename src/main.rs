@@ -1,16 +1,15 @@
-// [build] cargo build
-// [build] cd ../../komodoDEX && ../log-loc-rs/target/debug/log-loc -vm kmd
-// # [build] cargo install --path .. --force
-// # [build] cd ../../komodoDEX && log-loc -m kmd
-
 #![feature(non_ascii_idents)]
 
 #[macro_use] extern crate fomat_macros;
 #[macro_use] extern crate gstuff;
 
+mod kmd;
+
 use glob::glob;
-use gstuff::{now_ms, status_line, status_line_lm, slurp, with_status_line, ISATTY};
+use gstuff::{now_ms, status_line, status_line_lm, status_line_lm0, slurp, with_status_line, ISATTY};
 use structopt::StructOpt;
+use std::fs;
+use std::io::Write;
 use std::str::FromStr;
 
 #[derive(Debug, StructOpt)]
@@ -57,17 +56,48 @@ fn komodo_flutter (opt: Opt) -> Result<(), String> {
   status! ("Looking for dart files…");
   let files: Vec<_> = try_s! (glob ("**/*.dart")) .collect();
   let filesⁿ = files.len();
+  let mut modified = 0;
   for (path, idx) in files.into_iter().zip (1..) {
     let path = try_s! (path);
+    if !path.is_file() {continue}
     verbose! ((path.display()));
     if let Some (name) = path.file_name() {
       if let Some (name) = name.to_str() {
-        status! ((idx) '/' (filesⁿ) ' ' (name) '…')}}
+        status! ((idx) '/' (filesⁿ) ", " (modified) " modified, " (name) '…')}}
+
     let bytes = slurp (&path);
     if bytes.is_empty() {continue}
-    
-  }
-  ERR! ("TBD")}
+
+    let els = try_s! (kmd::find_tags (&bytes));
+    if els.len() == 1 {continue}  // A single `Source` chunk.
+
+    // Create a new version of the file, replacing the tags.
+    let mut buf = Vec::with_capacity (bytes.len() + 77);
+    let mut line = 1;
+    for el in els {
+      match el {
+        kmd::El::Source (bytes) => {
+          line += bytes.iter().filter (|&&ch| ch == b'\n') .count();
+          buf.extend_from_slice (bytes)},
+        kmd::El::Tag (tag) => {
+          buf.extend_from_slice (tag.head());
+          let _ = wite! (&mut buf, "name:" (line));
+          buf.extend_from_slice (tag.tail());
+          line += tag.head().iter().filter (|&&ch| ch == b'\n') .count();
+          line += tag.tail().iter().filter (|&&ch| ch == b'\n') .count()}}}
+
+    if buf != bytes {
+      let tmpᵖ = path.with_extension ("dart.tmp");
+      verbose! ("Writing to " (tmpᵖ.display()) '…');
+      let mut tmp = try_s! (fs::File::create (&tmpᵖ));
+      try_s! (tmp.write_all (&buf));
+      drop (tmp);
+      try_s! (fs::rename (tmpᵖ, path));
+      modified += 1}}
+
+  status_line_lm0();
+  status! ((filesⁿ) '/' (filesⁿ) ", " (modified) " modified.");
+  Ok(())}
 
 fn main() {
   let opt = Opt::from_args();
