@@ -106,10 +106,11 @@ fn komodo_flutter (opt: Opt) -> Result<(), String> {
     if buf != bytes {
       let tmpᵖ = path.with_extension ("dart.tmp");
       verbose! ("Writing to " (tmpᵖ.display()) '…');
-      let mut tmp = try_s! (fs::File::create (&tmpᵖ));
-      try_s! (tmp.write_all (&buf));
-      drop (tmp);
-      try_s! (fs::rename (tmpᵖ, path));
+      if !opt.dry_run {
+        let mut tmp = try_s! (fs::File::create (&tmpᵖ));
+        try_s! (tmp.write_all (&buf));
+        drop (tmp);
+        try_s! (fs::rename (tmpᵖ, path))}
       modified += 1}}
 
   status_line_lm0();
