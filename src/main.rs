@@ -51,10 +51,7 @@ fn komodo_flutter (opt: Opt) -> Result<(), String> {
     if now_ms() - status_line_lm() > 333 {
       status_line ("log-loc", line!(), fomat! ($($args)+))}}}}
   macro_rules! verbose {($($args: tt)+) => {
-    if opt.verbose {
-      if opt.status && *ISATTY {
-        with_status_line (&|| {pintln! ($($args)+)})
-      } else {pintln! ($($args)+)}}}}
+    if opt.verbose {with_status_line (&|| {pintln! ($($args)+)})}}}
 
   status! ("Looking for dart files…");
   let mut files = Vec::new();
