@@ -3,6 +3,7 @@ name = "log-loc"
 version = "0.1.0"
 authors = ["Artemciy <artemciy@gmail.com>"]
 edition = "2018"
+description = "Tag log statements with file name and line number"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
