@@ -1,4 +1,5 @@
 #![feature(non_ascii_idents)]
+#![feature(hash_raw_entry)]
 
 #[macro_use] extern crate fomat_macros;
 #[macro_use] extern crate gstuff;
@@ -8,6 +9,8 @@ mod kmd;
 use glob::glob;
 use gstuff::{now_ms, status_line, status_line_lm, status_line_lm0, slurp, with_status_line, ISATTY};
 use structopt::StructOpt;
+use std::borrow::Cow;
+use std::collections::hash_map::{HashMap, RawEntryMut};
 use std::fs;
 use std::io::Write;
 use std::str::FromStr;
@@ -54,16 +57,23 @@ fn komodo_flutter (opt: Opt) -> Result<(), String> {
       } else {pintln! ($($args)+)}}}}
 
   status! ("Looking for dart files…");
-  let files: Vec<_> = try_s! (glob ("**/*.dart")) .collect();
-  let filesⁿ = files.len();
-  let mut modified = 0;
-  for (path, idx) in files.into_iter().zip (1..) {
+  let mut files = Vec::new();
+  let mut stem_cnt = HashMap::new();
+  for path in try_s! (glob ("**/*.dart")) {
     let path = try_s! (path);
     if !path.is_file() {continue}
+    let stem = match path.file_stem() {Some (n) => n, None => continue};
+    let stem = match stem.to_str() {Some (n) => n, None => continue};
+    match stem_cnt.raw_entry_mut().from_key (stem) {
+      RawEntryMut::Occupied (mut oe) => *oe.get_mut() += 1,
+      RawEntryMut::Vacant (ve) => {ve.insert (stem.to_string(), 1);}};
+    let stem = stem.to_string();
+    files.push ((path, stem))}
+
+  let mut modified = 0;
+  for ((path, stem), idx) in files.iter().zip (1..) {
     verbose! ((path.display()));
-    if let Some (name) = path.file_name() {
-      if let Some (name) = name.to_str() {
-        status! ((idx) '/' (filesⁿ) ", " (modified) " modified, " (name) '…')}}
+    status! ((idx) '/' (files.len()) ", " (modified) " modified, " (stem) '…');
 
     let bytes = slurp (&path);
     if bytes.is_empty() {continue}
@@ -81,7 +91,14 @@ fn komodo_flutter (opt: Opt) -> Result<(), String> {
           buf.extend_from_slice (bytes)},
         kmd::El::Tag (tag) => {
           buf.extend_from_slice (tag.head());
-          let _ = wite! (&mut buf, "name:" (line));
+
+          // If the file name is unique then we use a short version of it
+          // and if not then we use an unambiguous path.
+          let name: Cow<str> =
+            if let Some (1) = stem_cnt.get (stem) {stem.into()}
+            else {fomat! ((path.display())) .into()};
+
+          let _ = wite! (&mut buf, (name) ":" (line));
           buf.extend_from_slice (tag.tail());
           line += tag.head().iter().filter (|&&ch| ch == b'\n') .count();
           line += tag.tail().iter().filter (|&&ch| ch == b'\n') .count()}}}
@@ -96,7 +113,7 @@ fn komodo_flutter (opt: Opt) -> Result<(), String> {
       modified += 1}}
 
   status_line_lm0();
-  status! ((filesⁿ) '/' (filesⁿ) ", " (modified) " modified.");
+  status! ((files.len()) '/' (files.len()) ", " (modified) " modified.");
   Ok(())}
 
 fn main() {
