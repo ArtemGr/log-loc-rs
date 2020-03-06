@@ -1,4 +1,6 @@
 #![feature(non_ascii_idents)]
+#![allow(unknown_lints, uncommon_codepoints)]
+
 #![feature(hash_raw_entry)]
 
 #[macro_use] extern crate fomat_macros;

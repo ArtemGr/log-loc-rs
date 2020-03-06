@@ -1,4 +1,5 @@
 use nom::IResult;
+use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{char, multispace0};
 
@@ -27,9 +28,10 @@ impl<'a> Tag<'a> {
   pub fn head (&self) -> &[u8] {&self.source[..self.start]}
   pub fn tail (&self) -> &[u8] {&self.source[self.end..]}}
 
-/// Matches the `Log.println('$tag',`, returning the matched slice and the tag offsets.
+/// Matches the `Log.println('$tag',`, returning the matched slice and the tag offsets.  
+/// Also the shorter `Log('$tag',` version.
 fn log_printlnⁿ (iₒ: &[u8]) -> IResult<&[u8], Tag> {
-  let (i, _) = tag ("Log.println") (iₒ) ?;
+  let (i, _) = alt ((tag ("Log.println"), tag ("Log"))) (iₒ) ?;
   let (i, _) = multispace0 (i) ?;
   let (i, _) = char ('(') (i) ?;
   let (i, _) = multispace0 (i) ?;
